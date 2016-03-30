@@ -22,10 +22,7 @@ juke.factory('StatsFactory', function ($q) {
 juke.factory("AlbumFactory", function ($http, StatsFactory, $log) {
 	
 	function getData (res) { return res.data; }
-
-		return {
-			fetchAll: function () {
-        return $http.get("/api/albums/")
+	var albums = $http.get("/api/albums/")
 					.then(getData)
 					.then(function (albums) {
 					  albums.forEach(function(album) {
@@ -34,14 +31,14 @@ juke.factory("AlbumFactory", function ($http, StatsFactory, $log) {
 						return albums;
 					})
 					.catch($log.error);
-			},
-			fetchById: function (id) {
+	var fetchById = function (id) {
         return $http.get("api/albums/" + id)
 					.then(getData)
 					.then(function (album) {
 						album.imageUrl = "/api/albums/" + id + ".image";
 						album.songs.forEach(function (song, i) {
 							song.audioUrl = '/api/songs/' + song._id + '.audio';
+							song.playing = false;
 							song.albumIndex = i;
 						});
 						return StatsFactory.totalTime(album).then(function (sum) {
@@ -50,6 +47,36 @@ juke.factory("AlbumFactory", function ($http, StatsFactory, $log) {
 						})
 					})
 					.catch($log.error); // $log service can be turned on and off; also, pre-bound
+			};
+	var albumById = {};
+	albums.then(function (albumList) {
+        albumList.forEach(function (album) {
+        	fetchById(album._id).then(function (a) {
+        		albumById[a._id] = a;
+        	});
+        });
+	});
+		return {
+			fetchAll: albums,
+			fetchByIdOld: function (id) {
+        return $http.get("api/albums/" + id)
+					.then(getData)
+					.then(function (album) {
+						album.imageUrl = "/api/albums/" + id + ".image";
+						album.songs.forEach(function (song, i) {
+							song.audioUrl = '/api/songs/' + song._id + '.audio';
+							song.playing = false;
+							song.albumIndex = i;
+						});
+						return StatsFactory.totalTime(album).then(function (sum) {
+							album.name += " (" +  (sum / 60 | 0) + ")";
+							return album;
+						})
+					})
+					.catch($log.error); // $log service can be turned on and off; also, pre-bound
+			},
+			fetchById: function (id) {
+				return albumById[id];
 			}
 		}
 
